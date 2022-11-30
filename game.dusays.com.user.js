@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         game.dusays.com自动云端存档
 // @namespace    http://bmqy.net/
-// @version      1.0.0
+// @version      1.0.1
 // @description  支持game.dusays.com平台挂机放置小游戏自动云端存档
 // @author       bmqy
 // @match        https://game.dusays.com/*
@@ -51,7 +51,7 @@
         loadSaveForCloud(){
             let cloud = GM_getValue(AutoSync.storeKey);
             let local = localStorage.getItem('_sd')
-            if(local !== cloud){
+            if(local != cloud){
                 if(confirm('检测到云端存档，是否需要恢复？')){
                     localStorage.setItem('_sd', cloud)
                     console.log('已恢复为云端存档');
