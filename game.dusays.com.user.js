@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         game.dusays.com自动云端存档
 // @namespace    http://bmqy.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  支持game.dusays.com平台挂机放置小游戏自动云端存档
 // @author       bmqy
 // @match        https://game.dusays.com/*
@@ -9,6 +9,7 @@
 // @grant        GM_addStyle
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
 (function() {
@@ -19,7 +20,10 @@
     const AutoSync = {
         // 自动保存倒计时：秒
         interval: 10,
-        storeKey: 'game.dusays.com',
+        githubName: '',
+        githubToken: '',
+        gistName: 'dusays.com',
+        gistFileName: 'game.dusays.com',
         // 自动保存
         bindAutoSave(){
             window.onload = function(){
@@ -43,20 +47,92 @@
         saveToCloud(){
             let local = localStorage.getItem('_sd')
             if(local){
-                GM_setValue(AutoSync.storeKey, local);
+                AutoSync.gist(local);
                 console.log('存档已保存到云端')
             }
         },
         // 加载云端存档
-        loadSaveForCloud(){
-            let cloud = GM_getValue(AutoSync.storeKey);
+        async loadSaveForCloud(){
+            let cloud = await AutoSync.gist();
             let local = localStorage.getItem('_sd')
-            if(local != cloud){
+            if(cloud && cloud!='hello' && local!=cloud){
                 if(confirm('检测到云端存档，是否需要恢复？')){
                     localStorage.setItem('_sd', cloud)
                     console.log('已恢复为云端存档');
                 }
             }
+        },
+
+        // 获取云端存档
+        async gist(newContent){
+            let outContent = '';
+            let gists = await AutoSync.http(`https://api.github.com/users/${AutoSync.githubName}/gists`);
+            
+            for (let i = 0; i < gists.length; i++) {
+                let theGist = gists[i];
+                let files = theGist.files;
+                for (const key in files) {
+                    if(key == AutoSync.gistFileName){
+                        if(newContent != ''){
+                            AutoSync.updateGist(theGist.id, newContent);
+                        }
+
+                        outContent = await AutoSync.getGist(theGist.url);
+                        break;
+                    }
+                }
+            }
+            if(outContent == ''){
+                AutoSync.updateGist(null, '');
+            }
+
+            return outContent;
+        },
+        async getGist(url){
+            let gist = await AutoSync.http(url);
+            return gist.files[AutoSync.gistFileName].content;
+        },
+        updateGist(id, content){
+            let data = {
+                "description":AutoSync.gistName,
+                "files": {},
+            };
+            if(id && content){
+                data.files[AutoSync.gistFileName] = {};
+                data.files[AutoSync.gistFileName].content = content;
+                AutoSync.http(`https://api.github.com/gists/${id}`, data, 'post')
+            } else {
+                data.public = false;
+                data.files[`${AutoSync.gistFileName}`] = {
+                    content: 'hello'
+                };
+                AutoSync.http('https://api.github.com/gists', data, 'post')
+            }
+        },
+
+
+        http(url, data, method){
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                method: method=='post' ? 'POST' : 'GET',
+                headers: {
+                    Accept: 'application/vnd.github+json',
+                    Authorization: `Bearer ${AutoSync.githubToken}`
+                },
+                url: url,
+                data: data ? JSON.stringify(data) : '',
+                onload(responses){
+                    if(responses.response){
+                        resolve(JSON.parse(responses.response))
+                    } else {
+                        resolve(responses)
+                    }
+                },
+                onerror(error){
+                    reject(error)
+                }
+            })
+            })
         },
 
         // 初始化
