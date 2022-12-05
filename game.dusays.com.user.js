@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         game.dusays.com自动云端存档
 // @namespace    http://bmqy.net/
-// @version      1.0.2
+// @version      1.0.3
 // @description  支持game.dusays.com平台挂机放置小游戏自动云端存档
 // @author       bmqy
 // @match        https://game.dusays.com/*
@@ -20,8 +20,6 @@
     const AutoSync = {
         // 自动保存倒计时：秒
         interval: 10,
-        githubName: '',
-        githubToken: '',
         gistName: 'dusays.com',
         gistFileName: 'game.dusays.com',
         // 自动保存
@@ -41,6 +39,21 @@
                     t--;
                 }, 1000);
             }
+        },
+
+        checkGithub(){
+            let storage = GM_getValue('github') || {}
+            if(!storage.username){
+                storage.username = prompt('请输入你的github用户名')
+                if(!storage.username) return false;
+                GM_setValue('github', storage);
+            }
+            if(!storage.token){
+                storage.token = prompt('请输入你的github gist token')
+                if(!storage.token) return false;
+                GM_setValue('github', storage);
+            }
+            return true;
         },
 
         // 保存本地存档到云端
@@ -65,15 +78,17 @@
 
         // 获取云端存档
         async gist(newContent){
+            let storage = GM_getValue('github')
+            let username = storage.username;
             let outContent = '';
-            let gists = await AutoSync.http(`https://api.github.com/users/${AutoSync.githubName}/gists`);
+            let gists = await AutoSync.http(`https://api.github.com/users/${username}/gists`);
             
             for (let i = 0; i < gists.length; i++) {
                 let theGist = gists[i];
                 let files = theGist.files;
                 for (const key in files) {
                     if(key == AutoSync.gistFileName){
-                        if(newContent != ''){
+                        if(newContent){
                             AutoSync.updateGist(theGist.id, newContent);
                         }
 
@@ -112,34 +127,39 @@
 
 
         http(url, data, method){
+            let storage = GM_getValue('github')
+            let token = storage.token;
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
-                method: method=='post' ? 'POST' : 'GET',
-                headers: {
-                    Accept: 'application/vnd.github+json',
-                    Authorization: `Bearer ${AutoSync.githubToken}`
-                },
-                url: url,
-                data: data ? JSON.stringify(data) : '',
-                onload(responses){
-                    if(responses.response){
-                        resolve(JSON.parse(responses.response))
-                    } else {
-                        resolve(responses)
+                    method: method=='post' ? 'POST' : 'GET',
+                    headers: {
+                        Accept: 'application/vnd.github+json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    url: url,
+                    responseType: 'json',
+                    data: data ? JSON.stringify(data) : '',
+                    onload(res){
+                        if(res.response){
+                            resolve(res.response)
+                        } else {
+                            resolve(res)
+                        }
+                    },
+                    onerror(error){
+                        reject(error)
                     }
-                },
-                onerror(error){
-                    reject(error)
-                }
-            })
+                })
             })
         },
 
         // 初始化
         init(){
             console.log('已加载自动云端存档...');
-            this.loadSaveForCloud();
-            this.bindAutoSave();
+            this.checkGithub() && (()=>{
+                this.loadSaveForCloud();
+                this.bindAutoSave();
+            })();
         },
     }
 
