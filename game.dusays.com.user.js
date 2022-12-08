@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         game.dusays.com自动云端存档
 // @namespace    http://bmqy.net/
-// @version      1.0.3
+// @version      1.0.4
 // @description  支持game.dusays.com平台挂机放置小游戏自动云端存档
 // @author       bmqy
 // @match        https://game.dusays.com/*
@@ -72,6 +72,7 @@
                 if(confirm('检测到云端存档，是否需要恢复？')){
                     localStorage.setItem('_sd', cloud)
                     console.log('已恢复为云端存档');
+                    location.reload();
                 }
             }
         },
